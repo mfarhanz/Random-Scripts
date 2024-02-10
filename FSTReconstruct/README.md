@@ -1,0 +1,1 @@
+Reads, creates, composes and uses Finite state transducers using given FST description files, to reconstruct either surface(upper) or lexical(lower) form of the given string in given lexical-form or surface-form file
