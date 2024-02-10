@@ -1,0 +1,19 @@
+ S -> NP S1F
+ S1F -> S2 VF
+ S1F -> VF
+ S2 -> NP S1
+ S1 -> S2 V
+ S1 -> V
+ NP -> Det N
+ Det -> "the"
+ N -> "rat"
+ N -> "cat"
+ N -> "dog"
+ N -> "elephant"
+ VF -> "died"
+ VF -> "cried"
+ VF -> "burped"
+ V -> "bit"
+ V -> "chased"
+ V -> "admired"
+ V -> "killed"

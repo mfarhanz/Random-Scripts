@@ -1,0 +1,13 @@
+S -> NP VP
+NP -> Det N
+NP -> PN
+Det -> "the"
+N -> "dog"
+N -> "rat"
+N -> "elephant"
+PN -> "Alice"
+PN -> "Bob"
+VP -> V NP
+V -> "admired"
+V -> "bit"
+V -> "chased"
