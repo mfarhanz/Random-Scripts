@@ -13,4 +13,4 @@ Execution:-
 - To detect on an image or video file, enter file address in the address bar, and hit Detect
 - For detailed logging, run in terminal
 
-![Screen of the GUI](/assets/images/screen.png)
+![Screen of the GUI](https://github.com/mfarhanz/Random-Scripts/blob/main/Sign%20Detection/assets/images/screen.png)
