@@ -12,3 +12,5 @@ Execution:-
 - Run start.py (double click or `python start.py` in terminal)
 - To detect on an image or video file, enter file address in the address bar, and hit Detect
 - For detailed logging, run in terminal
+
+![Screen of the GUI](/assets/images/screen.png)
