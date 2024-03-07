@@ -1,4 +1,4 @@
-### Audio Visualizer in Python
+Audio Visualizer in Python  
 This script runs best in Terminal/CMD, use `python audio_visual.py`
 
 #### Requirements:
