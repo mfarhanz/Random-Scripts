@@ -106,8 +106,8 @@ canvas = tk.Canvas(root, width=1200, height=700, background='black')
 # button = tk.Button(text="Image on Top")
 # rectangle3 = canvas.create_rectangle(150, 150, 220, 220, fill="#A7E46C")
 
-frames2[:] = [tk.PhotoImage(file='C:/Users/mfarh/OneDrive/Pictures/Downloads/scanline_f1.png').zoom(3, 3),
-               tk.PhotoImage(file='C:/Users/mfarh/OneDrive/Pictures/Downloads/scanline_f2.png').zoom(3, 3)]
+frames2[:] = [tk.PhotoImage(file='scanline_f1.png').zoom(3, 3),
+               tk.PhotoImage(file='scanline_f2.png').zoom(3, 3)]
 f_path = input("Enter path to image or gif:\t")
 while not path.exists(f_path):
     print('error: file not found')
