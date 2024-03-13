@@ -2,151 +2,205 @@
 adding filter to window specified in frames array
 also cool af terminal screen filter effect
 """
-import tkinter as tk
+from sys import stdout
 from os import path
-from PIL import Image, ImageTk, ImageSequence
+import tkinter as tk
+import numpy as np
+from time import perf_counter
 from random import randrange
+from PIL import Image, ImageTk, ImageSequence
 from threading import Thread
-# from ctypes import windll
+from traceback import format_exc
 
-# def place_image_on_top():
-#     image_label = tk.Label(root, image=image, borderwidth=0)
-#     image_label.image = image  # Keep a reference to the image to prevent garbage collection
-#     image_label.place(x=0, y=0)  # Adjust the coordinates as needed
-#     set_opacity(image_label, 0.3)
-#     canvas.create_image(200, 200, image=image)
-
-# def set_opacity(widget, value: float):  # this was for making tkinter widget transparent
-#     widget = widget.winfo_id()
-#     value = int(255*value)      # value from 0 to 1
-#     wnd_exstyle = windll.user32.GetWindowLongA(widget, -20)
-#     new_exstyle = wnd_exstyle | 0x00080000
-#     windll.user32.SetWindowLongA(widget, -20, new_exstyle)
-#     windll.user32.SetLayeredWindowAttributes(widget, 0, value, 2)
-
-def on_close():
+def on_close(f):
     global FILTER_WORKER_STATUS, filter_worker, filter_worker2
-    FILTER_WORKER_STATUS = False
-    filter_worker.join()
-    filter_worker2.join()
     root.destroy()
+    save = input('\nSave GIF? (Y/N)\t')
+    if save[0] in ['Y', 'y']:
+        if isinstance(f, Image.Image):
+            f.save("threshed.gif", save_all=True, append_images=[scaled_filtr_frames[0], f, scaled_filtr_frames[1]],
+                   optimize=False, duration=FRAME_DELAY2-2, loop=0)
+        else:
+            FILTER_WORKER_STATUS = False
+            filter_worker.join()
+            filter_worker2.join()
+            print(f'\033[38;2;15;125;90m'.strip(), end='')
+            gif = []
+            for f_index, frame in enumerate(f, start=1):
+                stdout.write(f'\rSaving [{"=" * f_index}{" " * (len(f) - f_index)}]')
+                stdout.flush()
+                frame_lst = np.array(frame)
+                inter = np.zeros((*frame.size[::-1], 3))
+                scaled_filtr_lst = np.array(scaled_filtr_frames[(0, 1)[f_index % 2]]
+                                            .crop((0, 0, f[0].size[0], f[0].size[1])))
+                filter_alpha1 = scaled_filtr_lst[:, :, 3]
+                scaled_filtr_lst = scaled_filtr_lst[..., 0:3]
+                mask = filter_alpha1 > 160
+                inter[mask] = scaled_filtr_lst[mask]
+                inter[~mask] = frame_lst[~mask]
+                gif.append(Image.fromarray(np.uint8(inter), "RGB"))
+            gif[0].save("threshed.gif", save_all=True, append_images=gif[1:],
+                        optimize=False, duration=8, disposal=0, loop=0)
+        if not isinstance(f, Image.Image):
+            print()
+        out_path = path.dirname(path.abspath(__file__))
+        print(f'\033[92mGIF saved at \033[38;2;70;130;180m'
+              f'\033]8;;{out_path}\033\\{out_path}\033]8;;\033\\\033[0m')
 
-def image_process(index, img, pixels):
-    img2 = Image.new("RGBA", img.size)
-    pixels_new = img2.load()
-    if index == -1:
-        print('Processing')
-    elif index % 5 == 0:
-        print(f" processing frame {index}-{index+5}")
-    else:
-        print('.', end='', flush=True)
+def img_to_list(img):
+    lst = [[None for _ in range(img.size[1])] for _ in range(img.size[0])]
     for i in range(img.size[0]):
-        if i % 250 == 0:
-            print('.', end='', flush=True)
         for j in range(img.size[1]):
-            # gray = sum(pixels[i, j][:-1])//3
-            gray = int(0.2126 * pixels[i, j][0] +
-                       0.7152 * pixels[i, j][1] +
-                       0.0722 * pixels[i, j][2])
-            pixels_new[i, j] = (
-                randrange(140, 190) if gray < 57 else 0,
-                228 if gray < 57 else 0,
-                108 if gray < 57 else 0,
-                # pixels[i, j][3] + randrange(-20, -5) if pixels[i, j][3] > 30 else 0
-            )
+            lst[i][j] = img.getpixel((i, j))
+    print(lst[0][0])
+    return lst
+
+def image_process(index, img):
+    global FILTER_RGB
+    if index % 2 == 0:
+        print()
+    pixels = np.array(img)
+    pixels_new = np.zeros_like(pixels)
+    for i in range(pixels.shape[0]):
+        if i % 10 == 0:
+            print(f'\rprocessing frame {index}-{index + 2 if index + 2 < FRAME_COUNT else FRAME_COUNT} '
+                  f'\t[ {"=" * int(i / 10)}{" " * int(pixels.shape[0] / 10 - i / 10)}]', end='')
+        gray = np.dot(pixels[i], [0.299, 0.587, 0.114])
+        mask = gray > 75
+        pixels_new[i][mask] = FILTER_RGB
+    # for i in range(pixels.shape[0]):
+    #     if i % 50 == 0:
+    #         pass
+    #         print(f'\rprocessing frame {index}-{index+3 if index+3 < FRAME_COUNT else FRAME_COUNT} '
+    #               f'\t[ {"=" * int(i/50)}{" " * int(pixels.shape[0]/50 - i/50)}]', end='')
+    #     for j in range(pixels.shape[1]):
+    #         gray = int(0.299 * pixels[i, j][0] +
+    #                    0.587 * pixels[i, j][1] +
+    #                    0.114 * pixels[i, j][2])
+    #         pixels_new[i, j] = (
+    #             FILTER_RGB[0] if gray > 75 else 0,     # 27 5
+    #             FILTER_RGB[1] if gray > 75 else 0,     # 189 130
+    #             FILTER_RGB[2] if gray > 75 else 0,     # 100-150 50-100
+    #         )
+    img2 = Image.fromarray(np.uint8(pixels_new), "RGB")
     tkimg = ImageTk.PhotoImage(img2)
-    return tkimg
+    return tkimg, img2
 
 def animate(n):
     if FILTER_WORKER_STATUS:
-        if (n < len(frames)):
+        if n < len(frames):
             global frame_id
             canvas.delete(frame_id)
             frame_id = canvas.create_image(0, 0, image=frames[n], anchor=tk.NW)
-            n = n+1 if n != len(frames)-1 else 0
+            n = n + 1 if n != len(frames) - 1 else 0
             root.after(FRAME_DELAY, animate, n)
 
 def animate2(n):
     if FILTER_WORKER_STATUS:
-        if (n < len(frames2)):
+        if n < len(frames2):
             global frame_id2
             canvas.delete(frame_id2)
             frame_id2 = canvas.create_image(0, 0, image=frames2[n], anchor=tk.NW)
             n = n+1 if n != len(frames2)-1 else 0
             root.after(FRAME_DELAY2, animate2, n)
 
-def gif_setup(file_path):
+def gif_setup(f_path):
     pilframes = []
-    with Image.open(file_path) as gif:
-        for frame in ImageSequence.Iterator(gif):
-            print('.', end='', flush=True)
+    print(f'\033[38;2;15;125;90m', end='')
+    with Image.open(f_path) as gif:
+        global FRAME_COUNT
+        x, y, FRAME_COUNT = None, None, gif.n_frames
+        for f_index, frame in enumerate(ImageSequence.Iterator(gif)):
+            stdout.write(f'\rloading frames\t[ {"="*f_index}{" "*(FRAME_COUNT-f_index)}]')
+            stdout.flush()
             pilframe = frame.copy()
-            pilframes.append(pilframe.resize((int(pilframe.size[0] / (pilframe.size[0] / 1180)),
-                                              int(pilframe.size[1] / (pilframe.size[1] / 680)))).convert('RGB'))
-    framemaps = [pf.load() for pf in pilframes]
-    print('.', end='', flush=True)
-    print(' frames loaded')
-    return pilframes, framemaps
+            if pilframe.size[0] > pilframe.size[1]:
+                x, y = 1200, int(1200 / (pilframe.size[0]/pilframe.size[1]))
+            else:
+                y, x = 700, int(700 / (pilframe.size[1]/pilframe.size[0]))
+            pilframes.append(pilframe.resize((x, y)).convert('RGB'))
+    # framemaps = [pf.load() for pf in pilframes]
+    return pilframes
 
+def start_process():
+    while True:
+        f_path = input("Enter path to image or gif:\t")
+        try:
+            if path.exists(f_path):
+                break
+            else:
+                raise FileNotFoundError("\033[0m could not locate file\n"
+                                        "remove quotes "" from start and end of path if present")
+        except FileNotFoundError as err:
+            print('\033[91m'+format_exc())
+    if f_path[-3:] in ['png', 'jpg', 'jpeg', 'jpe']:
+        global FRAME_DELAY2, newimg
+        FRAME_DELAY2 = 30
+        img = Image.open(f_path)
+        if img.size[0] > img.size[1]:
+            x, y = 1200, int(1200 / (img.size[0] / img.size[1]))
+        else:
+            y, x = 700, int(700 / (img.size[1] / img.size[0]))
+        scaled_img = img.resize((x, y))
+        pixel_map = scaled_img.load()
+        print(f'\033[38;2;15;125;90m', end='')
+        print('applying filter -', end='')
+        newimg, saveimg = image_process(0, scaled_img, pixel_map)
+        canvas.create_image(0, 0, image=newimg, anchor=tk.NW)
+        print(' - \033[92mdone\033[0m')
+        animate2(0)
+        root.protocol("WM_DELETE_WINDOW", lambda data=saveimg: on_close(data))
+    elif f_path[-3:] == 'gif':
+        global FRAME_DELAY, frames, filter_worker, filter_worker2
+        FRAME_DELAY = 72
+        FRAME_DELAY2 = 8
+        pfrms = gif_setup(f_path)
+        print('\napplying filter -', end='')
+        starttimer = perf_counter()
+        frames, saveframes = zip(*(image_process(i, frm) for i, frm in enumerate(pfrms)))
+        stoptimer = perf_counter()
+        print(f' - \033[92mdone ({round((stoptimer - starttimer) * 1000, 3)}ms)\033[0m')
+        filter_worker = Thread(target=animate, args=(0,))
+        filter_worker2 = Thread(target=animate2, args=(0,))
+        filter_worker.start()
+        filter_worker2.start()
+        root.protocol("WM_DELETE_WINDOW", lambda data=saveframes: on_close(data))
+    else:
+        pass
+
+# def runtk():
+#     root = tk.Tk()
+#     root.title("ScanlineMode")
+#     root.geometry('%dx%d+%d+%d' % (1200, 700, root.winfo_screenmmwidth() / 4, root.winfo_screenmmheight() / 4))
+#     canvas = tk.Canvas(root, width=1200, height=700, background='black')
+#     canvas.pack()
+#     root.mainloop()
+
+global root, canvas
 FRAME_DELAY = None
 FRAME_DELAY2 = None
+FRAME_COUNT = 1     # default if image
+FILTER_RGB = [15, 165, randrange(50, 100)]
 FILTER_WORKER_STATUS = True
-frames = []
+# sys.tracebacklimit = 0
+filter_worker = None
+filter_worker2 = None
+frames = None
 frames2 = []
 frame_id = None
 frame_id2 = None
+# thd = Thread(target=runtk)
+# thd.daemon = True
+# thd.start()
 root = tk.Tk()
-root.title("Image on Top")
+root.title("ScanlineMode")
 root.geometry('%dx%d+%d+%d' % (1200, 700, root.winfo_screenmmwidth()/4, root.winfo_screenmmheight()/4))
-# root.resizable(False, False)
-# root.attributes('-alpha', 0.4)
-# root.attributes('-transparent', 'white')
 canvas = tk.Canvas(root, width=1200, height=700, background='black')
-# btn2 = tk.Button(text='Button', height=4, width=4)
-# button = tk.Button(text="Image on Top")
-# rectangle3 = canvas.create_rectangle(150, 150, 220, 220, fill="#A7E46C")
-
-frames2[:] = [tk.PhotoImage(file='scanline_f1.png').zoom(3, 3),
-               tk.PhotoImage(file='scanline_f2.png').zoom(3, 3)]
-f_path = input("Enter path to image or gif:\t")
-while not path.exists(f_path):
-    print('error: file not found')
-    print('       remove quotes "" from start and end of path if present')
-    f_path = input("Enter path to image or gif:\t")
-# user_ch = input("Type pic for image filter or gif for gif filter-------\n")
-# while user_ch not in ['pic', 'img', 'gif', 'PIC', 'IMG', 'GIF', 'Pic', 'Img', 'Gif']:
-#     user_ch = input("Type pic for image filter or gif for gif filter-------\n")
-# if user_ch in ['pic', 'img', 'Pic', 'Img', 'PIC', 'IMG']:
-if f_path[-3:] in ['png', 'jpg', 'jpeg', 'jpe']:
-    FRAME_DELAY2 = 30
-    img = Image.open(f_path)
-    print(img.size)
-    # scaled_img = img.resize((int(img.size[0] * 1.2), int(img.size[1] * 1.2)))
-    scaled_img = img.resize((int(img.size[0] / (img.size[0] / 1180)), int(img.size[1] / (img.size[1] / 680))))
-    pixelMap = scaled_img.load()
-    newimg = image_process(-1, scaled_img, pixelMap)
-    canvas.create_image((600, 350), image=newimg)
-    print(' Done')
-    animate2(0)
-# elif user_ch in ['gif', 'Gif', 'GIF']:
-elif f_path[-3:] == 'gif':
-    FRAME_DELAY = 72
-    FRAME_DELAY2 = 3
-    # frames = [tk.PhotoImage(file='C:/Users/mfarh/OneDrive/Pictures/Downloads/crysis3_1.gif', # old method, less efficient
-    #                         format="gif -index %i" % i).zoom(2, 2) for i in range(FRAMES)]
-    pfrms, fmps = gif_setup(f_path)
-    print('\napplying filter')
-    frames[:] = [image_process(i, frm, mp) for i, (frm, mp) in enumerate(zip(pfrms, fmps))]
-    print(' Done')
-    filter_worker = Thread(target=animate, args=(0,))
-    filter_worker2 = Thread(target=animate2, args=(0,))
-    filter_worker.start()
-    filter_worker2.start()
-    root.protocol("WM_DELETE_WINDOW", on_close)
-else:
-    pass
-
-# canvas.create_window(60, 60, anchor='nw', window=btn2)
-# canvas.create_window(300, 300, anchor='nw', window=button)
+orig_fltr_frames = [Image.open(fp='C:/Users/mfarh/OneDrive/Pictures/Downloads/scanline_f1.png'),
+                    Image.open(fp='C:/Users/mfarh/OneDrive/Pictures/Downloads/scanline_f2.png')]
+scaled_filtr_frames = [fltr_frm.resize((fltr_frm.size[0]*3, fltr_frm.size[1]*3)).crop((0, 0, 1200, 700))
+                       for fltr_frm in orig_fltr_frames]
+frames2[:] = [ImageTk.PhotoImage(pfrm2) for pfrm2 in scaled_filtr_frames]
+start_process()
 canvas.pack()
 root.mainloop()
