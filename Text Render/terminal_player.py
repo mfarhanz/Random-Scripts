@@ -1,6 +1,5 @@
 import sys
 import numpy as np
-from random import choice
 from time import sleep
 from os import path, system
 from PIL import Image, ImageSequence
@@ -36,7 +35,6 @@ def getmasks(pils):
     for i in range(len(pils)):
         iml = np.array(pils[i])
         gray = np.mean(iml, axis=-1, dtype=int)
-        pil = Image.fromarray(np.uint8(gray), "L").resize((iml.shape[1], iml.shape[0]))
         # gray_vals, count_vals = np.unique(gray, return_counts=True)
         # thresh = gray_vals[count_vals > np.mean(count_vals)]    # both ways are similar, but give the wrong thresh idk
         # thresh = gray_vals[np.argmax(count_vals)]
@@ -102,11 +100,16 @@ if __name__ == '__main__':
     except FileNotFoundError as err:
         print('File not found!')
     pils_ref, fdelay = getframes()
-    print(f'Current background symbol: {bg}')
-    print(f'Current foreground symbol: {fg}')
+    print(f'Current background symbol: {bg}\tCurrent foreground symbol: {fg}', end="\t")
+    ch_editsym = input("Edit symbols?\t")
+    if ch_editsym in ['Y', 'y', '1', 'yes', 'Yes', 'YES', 'True']:
+        ch_bg = input("Background symbol:  ")
+        ch_fg = input(f"\r\033[FBackground symbol:  {ch_bg}\tForeground symbol:  ")
+        # ch_fg = input("\033[1AForeground symbol:\t")
+        bg, fg = ch_bg, ch_fg
     ch_invert = input("Invert render? (Y/N)  ")
     if ch_invert in ['Y', 'y', '1', 'yes', 'Yes', 'YES', 'True']:
-        bg, fg = '.', 'E'
+        bg, fg = fg, bg
     # print(pils_ref[0].size, len(pils_ref))
     txt_frm = np.full((txt_w, txt_h), bg)
     txt_frm[:, -1] = '\n'
