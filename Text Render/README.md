@@ -12,3 +12,5 @@
 
 <br>
 P.S. This works best on terminal applications (hence the name) like CMD, PS, Shell with font size changed to near or around 5 pt.
+
+###### <sub>ignore the ascii header</sub>
