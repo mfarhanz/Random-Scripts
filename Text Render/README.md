@@ -5,7 +5,6 @@
 #### Requirements -
 - Numpy (`pip install numpy`)
 - Pillow/PIL (`pip install pillow`)
-<br>
 
 #### Execution -
 `python terminal_player.py`
