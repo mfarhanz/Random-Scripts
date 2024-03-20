@@ -188,10 +188,10 @@ if __name__ == '__main__':
         else:
             y, x = 700, int(700 / (img.size[1] / img.size[0]))
     print(x, y)
-    directory = fsencode("REPLACE_PATH_ON_DISK/inter1")
+    directory = fsencode("REPLACE_PATH_ON_DISK/filter_frames/inter1")
     for file in listdir(directory):
         filename = fsdecode(file)
-        filtframes.append(Image.open(fp=f'REPLACE_PATH_ON_DISK/inter1/{filename}')
+        filtframes.append(Image.open(fp=f'REPLACE_PATH_ON_DISK/filter_frames/inter1/{filename}')
                           .resize((x, y)))
     frames2 = [ImageTk.PhotoImage(ffrm) for ffrm in filtframes]
     if f_path[-3:] in ['png', 'jpeg', 'bmp', 'jpg']:
