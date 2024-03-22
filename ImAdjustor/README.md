@@ -1,5 +1,5 @@
 ### ImAdjustor
-##### _Add cool filters -not the everyday kind- and effects to your GIFs/Images_  
+##### _Add cool filters and effects to your GIFs/Images_  
 <br>
 
 #### Requirements -
