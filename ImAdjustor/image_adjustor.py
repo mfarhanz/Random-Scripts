@@ -1,70 +1,20 @@
 """
 image/gif filtering viewer tool
-p.s. needs convolve_ops.py as a dependency
+p.s. needs kernel_ops.py as a dependency
 """
-from tkinter import Tk, Canvas, NW, Spinbox, StringVar, IntVar, Button, Label, Scale
-from PIL import Image, ImageTk, ImageSequence
 from os import fsencode, listdir, fsdecode
+from threading import Thread
+from time import perf_counter
+from tkinter import Tk, Canvas, NW, Spinbox, StringVar, IntVar, Button, Label, Scale
 from tkinter.font import Font, families
 from tkinter.ttk import Combobox, Progressbar
+
+from PIL import Image, ImageTk, ImageSequence
 from numpy import array, clip, uint8
-from math import cos, sin, log
-from threading import Thread
-from random import uniform
-from time import perf_counter
-import convolve_ops
 
-color_matrix = {
-    'none': lambda _: (1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0),
-    'rotation': lambda val: (cos(val), -sin(val), 0, 0, sin(val), cos(val), 0, 0, 0, 0, 1, 0),
-    'factor': lambda val: (val/25+1, 0, 0, 0, 0, val/25+1, 0, 0, 0, 0, val/25+1, 0),
-    'log': lambda val: (log(abs(val)) % 1, 0, 0, 0, 0, log(abs(val)) % 1, 0, 0, 0, 0, log(abs(val)) % 1, 0),
-    'sine': lambda val: (sin(val), 0, 0, 0, 0, sin(val), 0, 0, 0, 0, sin(val), 0),
-    'cie_xyz': lambda val: (0.412453, 0.357580, 0.180423, val, 0.212671, 0.715160,
-                          0.072169, val, 0.019334, 0.119193, 0.950227, val),
-    'cmyk': lambda val: (0.4124, 0.3576, 0.1805, val, 0.2126, 0.7152, 0.0722, val, 0.0193, 0.1192, 0.9505, val),
-    'lab': lambda val: (0.4124, 0.3576, 0.1805, val, 0.2126, 0.7152, 0.0722, val, 0.0193, 0.1192, 0.9505, val),
-    'yuv': lambda val: (0.299, 0.587, 0.114, val, -0.14713, -0.28886, 0.436, val, 0.615, -0.51499, -0.10001, val),
-    'gray': lambda val: (0.299, 0.587, 0.114, val, 0.299, 0.587, 0.114, val, 0.299, 0.587, 0.114, val),
-    'sepia': lambda val: (0.393, 0.769, 0.189, val, 0.349, 0.686, 0.168, val, 0.272, 0.534, 0.131, val),
-    'tint_c_r': lambda val: (1, 0, 0, val, 0, 1, 0, -val, 0, 0, 1, -val),
-    'tint_m_g': lambda val: (1, 0, 0, -val, 0, 1, 0, val, 0, 0, 1, -val),
-    'tint_y_b': lambda val: (1, 0, 0, -val, 0, 1, 0, -val, 0, 0, 1, val),
-    'intensity': lambda val: (1, 0, 0, val*1.2, 0, 1, 0, val*1.2, 0, 0, 1, val*1.2),
-    'color_balance': lambda val: (1.5, 0, 0, val, 0, 1, 0, val, 0, 0, 0.8, val),
-    'true_color': lambda val: (1.87, -0.79, -0.08, val, -0.20, 1.64, -0.44, val, 0.03, -0.55, 1.52, val),
-    'random': lambda val: (uniform(0.5, 0.8)+1/val, 0, 0, 0, 0, uniform(0.5, 0.6)+1/val, 0, 0,
-                           0, 0, uniform(0.2, 0.6)+1/val, 0),
-    'bluish': lambda val: (-1, -2, -1, val, 1, 0, 0, val, 1, 0, 1, val),
-    'hellish': lambda val: (1, 0, 0, val, 0, 1, -1, val, 0, -1, 1, val),
-    'hellish2': lambda val: (-1.8, 1, 0.8, val, -1, 0, 0, val, 0, -1, 1, val),
-    'hellish3': lambda val: (0.3, -0.3, 0.9, val, 1.8, -1, 0, val, -1, 0, 0.4, val),
-    'ghostly': lambda val: (-1, 1, 0, val, -1, 0.5, 1, val, 0, 1, 1, val),
-    'evil': lambda val: (-1.8, 1, 0.8, val, -0.1, 0.3, 0, val, 0.5, -1, 1, val),
-    'evil2': lambda val: (0, 3, -2, val, -1, 1, 0.2, val, -1, 1.4, -1, val),
-    'scary': lambda val: (0, -1, 0, val, 1, -0.45, 0, val, -1, 2, -1, val),
-    'scary2': lambda val: (0, 0, 0, val, -2, 1, 0.6, val, -1, 1.4, -1, val),
-    'scary2_contrast': lambda val: (0, 0, 0, val, -1, -1, 2, val, -0.1, -0.9, 1.1, val),
-    'afterdark': lambda val: (-0.9, 0, 0, val, -0.5, -0.5, 0, val, 0.2, -0.9, 1.06, val),
-}
+import utils.kernel_ops
+from utils.filters import transform_matrix, color_matrix
 
-transform_matrix = {
-    'blur': ((1/9, 1/9, 1/9), (1/9, 1/9, 1/9), (1/9, 1/9, 1/9)),
-    'gaussian_blur': ((1/16, 1/8, 1/16), (1/8, 1/4, 1/8), (1/16, 1/8, 1/16)),
-    'motion_blur': ((0, 0, 1/3), (0, 1/3, 0), (1/3, 0, 0)),
-    'negative': ((0, 0, 0), (0, -1, 0), (0, 0, 0)),
-    'sobel_edge_detect_H': ((-1, 0, 1), (-2, 0, 2), (-1, 0, 1)),
-    'sobel_edge_detect_V': ((-1, -2, -1), (0, 0, 0), (1, 2, 1)),
-    'prewitt_edge_detect_H': ((-1, -1, -1), (0, 0, 0), (1, 1, 1)),
-    'prewitt_edge_detect_V': ((-1, 0, 1), (-1, 0, 1), (-1, 0, 1)),
-    'scharr_edge_detect_H': ((-3, 0, 3), (-10, 0, 10), (-3, 0, 3)),
-    'scharr_edge_detect_V': ((-3, -10, -3), (0, 0, 0), (3, 10, 3)),
-    'high_pass': ((-1, -1, -1), (-1,  8, -1), (-1, -1, -1)),
-    'band_pass': ((0, -1,  0), (-1,  4, -1), (0, -1,  0)),
-    'laplacian': ((0, 1, 0), (1, -4, 1), (0, 1, 0)),
-    'emboss': ((-2, -1, 0), (-1,  1, 1), (0,  1, 2)),
-    'sharpen': ((0, -1,  0), (-1,  5, -1), (0, -1,  0)),
-}
 
 def animate2(n):
     if FILTER_WORKER_STATUS:
@@ -154,11 +104,13 @@ def color_matrix_process(cmd):
         canvas.delete("mainimg")
         if curr_color_matrix.get() == 'none':
             EFFECT_ACTIVE = False
-            scaled_img = img.resize((x, y)).convert(mode='RGB')
+            scaled_img = img.convert('RGB')
+            scaled_img = img.resize((x, y))
         elif EFFECT_ACTIVE:
-            scaled_img = scaled_img.resize((x, y)).convert(mode='RGB', matrix=color_matrix[curr_color_matrix.get()](theta))
+            scaled_img = scaled_img.convert(mode='RGB', matrix=color_matrix[curr_color_matrix.get()](theta))
         elif not EFFECT_ACTIVE:
-            scaled_img = img.resize((x, y)).convert(mode='RGB', matrix=color_matrix[curr_color_matrix.get()](theta))
+            scaled_img = img.convert('RGB')
+            scaled_img = scaled_img.resize((x, y)).convert(mode='RGB', matrix=color_matrix[curr_color_matrix.get()](theta))
         newtkimg = ImageTk.PhotoImage(scaled_img)
         canvas.create_image(0, 0, image=newtkimg, anchor=NW, tags='mainimg')
 
@@ -170,9 +122,10 @@ def transform_matrix_process(process_frames):
     for frame in process_frames:
         imgarr = array(frame)
         imgchannels = [imgarr[:, :, 0], imgarr[:, :, 1], imgarr[:, :, 2]]
-        dimx, dimy = imgchannels[0].shape[0], imgchannels[0].shape[1]
-        kernel = array(transform_matrix[curr_transform_matrix.get()])
-        ret = convolve_ops.channel_op(dimx * dimy + 2 * (dimx + dimy) + 4, imgchannels, kernel).astype(int)
+        kernel = array(transform_matrix[curr_transform_matrix.get()]['kernel'])
+        dimx, dimy, pad_len = imgchannels[0].shape[0], imgchannels[0].shape[1], len(kernel) // 2
+        # ret = kernel_ops.channel_op(dimx * dimy + 2 * (dimx + dimy) + 4, imgchannels, kernel).astype(int)
+        ret = kernel_ops.channel_op((dimx+2*pad_len)*(dimy+2*pad_len), imgchannels, kernel).astype(int)
         match norm_method.get():
             case 'clip':
                 norm_ret = clip(ret, 0, 255)
@@ -186,7 +139,7 @@ def transform_matrix_process(process_frames):
             saveframes.append(Image.fromarray(uint8(norm_ret)))
             frames.append(ImageTk.PhotoImage(saveframes[-1]))
         else:
-            scaled_img = Image.fromarray(uint8(norm_ret))
+            scaled_img = Image.fromarray(uint8(norm_ret), 'RGB')
             newtkimg = ImageTk.PhotoImage(scaled_img)
             canvas.create_image(0, 0, image=newtkimg, anchor=NW, tags='mainimg')
         stp = perf_counter()
@@ -235,7 +188,7 @@ if __name__ == '__main__':
     root = Tk()
     filtframes, pilframes, saveframes, frames = [], [], [], []
     root.title("ImAdjustr")
-    f_path = "C:/Users/mfarh/OneDrive/Pictures/Downloads/elizabeth2.gif"
+    f_path = "C:/Users/mfarh/OneDrive/Pictures/Screenshots/elizabeth.png"
     root.geometry('%dx%d+%d+%d' % (1200, 700, root.winfo_screenmmwidth() / 4, root.winfo_screenmmheight() / 4))
     canvas = Canvas(root, width=1200, height=700, background='black')
     if f_path[-3:] == 'gif':
@@ -263,7 +216,8 @@ if __name__ == '__main__':
                           .resize((x, y)))
     frames2 = [ImageTk.PhotoImage(ffrm) for ffrm in filtframes]
     if f_path[-3:] in ['png', 'jpeg', 'bmp', 'jpg']:
-        scaled_img = img.resize((x, y)).convert(mode='RGB')
+        scaled_img = img.convert(mode='RGB')
+        scaled_img = scaled_img.resize((x, y))
         tkimg = ImageTk.PhotoImage(scaled_img)
         canvas.create_image(0, 0, image=tkimg, anchor=NW, tags='mainimg')
 
