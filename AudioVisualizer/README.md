@@ -1,5 +1,5 @@
-Audio Visualizer in Python  
-This script runs best in Terminal/CMD, use `python audio_visual.py`
+## Audio Visualizer in Python  
+This script runs best in Terminal/CMD, run with `python audio_visual.py`
 
 #### Requirements:
 - Sounddevice module `pip install sounddevice`
